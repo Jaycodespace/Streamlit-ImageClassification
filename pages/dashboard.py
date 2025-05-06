@@ -7,6 +7,7 @@ import torch
 from torchvision import transforms
 import torchvision.models as models
 import os
+from datasets import load_dataset
 
 # Set page config
 st.set_page_config(page_title="Car Model Classifier", layout="centered")
@@ -41,11 +42,10 @@ except FileNotFoundError:
 # Load label names without using the problematic dataset loading
 @st.cache_resource
 def load_label_mapping():
-    labels_path = os.path.join(os.path.dirname(__file__), "car_labels.txt")
-    if not os.path.exists(labels_path):
-        raise FileNotFoundError(f"Label file not found: {labels_path}")
-    with open(labels_path, "r") as file:
-        labels = [line.strip() for line in file.readlines()]
+    # Load the Stanford Cars dataset from Hugging Face
+    dataset = load_dataset("naufalso/stanford_cars")
+    # Get the list of car model names from the dataset
+    labels = dataset['train'].features['label'].names # type: ignore
     return labels
 
 
@@ -86,7 +86,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Load label names and model
 
 model = load_model()
-car_names = load_label_mapping()
 
 # Page content
 st.title("🚗 Car Model Classifier")

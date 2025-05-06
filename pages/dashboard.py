@@ -143,7 +143,7 @@ if img:
             st.subheader("🚘 Predicted Car: Not a car")
         else:
             try:
-                st.subheader(f"🚘 Predicted Car: {car_names[pred:1]}")
+                st.subheader(f"🚘 Predicted Car: {car_names[pred]}") # type: ignore
             except IndexError:
                 st.subheader(f"🚘 Predicted Car: Unknown (index {pred})")
         

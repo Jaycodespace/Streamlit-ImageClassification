@@ -8,9 +8,14 @@ from torchvision import transforms
 from datasets import load_dataset
 import torchvision.models as models
 import os
+from huggingface_hub import login
+
 
 # Set page config
 st.set_page_config(page_title="Car Model Classifier", layout="centered")
+# Login to Hugging Face using Streamlit secrets
+login(token=os.getenv("HF_TOKEN"))
+
 
 # Encode image to base64
 def get_base64_bg(path):

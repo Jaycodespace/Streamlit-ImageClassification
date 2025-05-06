@@ -5,9 +5,10 @@ import requests
 from io import BytesIO
 import torch
 from torchvision import transforms
-from datasets import load_dataset
 import torchvision.models as models
 import os
+from time import sleep
+from datasets import load_dataset
 
 # Set page config
 st.set_page_config(page_title="Car Model Classifier", layout="centered")
@@ -34,30 +35,30 @@ def set_background(image_file):
     st.markdown(css, unsafe_allow_html=True)
 
 # Use it
-set_background("pages/background3.jpg")
+try:
+    set_background(os.path.join(os.path.dirname(__file__), "background3.jpg"))
+except FileNotFoundError:
+    st.warning("⚠️ Background image not found. Skipping background setup.")
 
-# Set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# Load label names from dataset
-@st.cache_resource
+# Load label names from Hugging Face with retries in case of rate limiting
 def load_label_mapping():
-    try:
-        ds = load_dataset("naufalso/stanford_cars")
-    except Exception as e:
-        st.error(f"Failed to load dataset: {e}")
-        st.stop()
-
-    label_to_name = {}
-    max_label = 0
-    for example in ds["train"]:
-        label = example.get("label")
-        name = example.get("car_name", f"Unknown label {label}")
-        if label is not None:
-            label_to_name[label] = name
-            if label > max_label:
-                max_label = label
-    return [label_to_name.get(i, f"Unknown label {i}") for i in range(max_label + 1)]
+    retries = 3
+    for _ in range(retries):
+        try:
+            # Load Stanford Cars dataset from Hugging Face
+            dataset = load_dataset("naufalso/stanford_cars")
+            # Extract car model names from the dataset
+            labels = dataset['train'].features['label'].names # type: ignore
+            return labels
+        except Exception as e:
+            if "429" in str(e):
+                st.warning("Rate limit exceeded. Retrying in 30 seconds...")
+                sleep(30)  # Wait for 30 seconds before retrying
+            else:
+                st.error(f"An error occurred: {e}")
+                break
+    st.error("Failed to load dataset after multiple attempts.")
+    return []
 
 # Load model
 @st.cache_resource
@@ -67,17 +68,12 @@ def load_model():
     model.fc = torch.nn.Linear(num_ftrs, 196)
     model_path = os.path.join(os.path.dirname(__file__), "best_model.pth")
     if not os.path.exists(model_path):
-        st.error(f"Model file not found at: {model_path}. Please ensure the file exists.")
-        st.stop()
-    try:
-        checkpoint = torch.load(model_path, map_location=device)
-        model.load_state_dict(checkpoint, strict=False)
-        model.eval()
-        model.to(device)
-        return model
-    except Exception as e:
-        st.error(f"Failed to load model: {e}")
-        st.stop()
+        raise FileNotFoundError(f"Model file not found at: {model_path}")
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint, strict=False)
+    model.eval()
+    model.to(device)
+    return model
 
 # Prediction transform
 transform = transforms.Compose([
@@ -87,21 +83,19 @@ transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225])
 ])
 
-# Prediction function
 def predict(image, model):
-    try:
-        image = transform(image).unsqueeze(0).to(device)
-        with torch.no_grad():
-            output = model(image)
-            probs = torch.nn.functional.softmax(output, dim=1)
-            conf, predicted = torch.max(probs, 1)
-        return predicted.item(), conf.item() * 100
-    except Exception as e:
-        st.error(f"Prediction failed: {e}")
-        return None, None
+    image = transform(image).unsqueeze(0).to(device)
+    with torch.no_grad():
+        output = model(image)
+        probs = torch.nn.functional.softmax(output, dim=1)
+        conf, predicted = torch.max(probs, 1)
+    return predicted.item(), conf.item() * 100
+
+# Set device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load label names and model
-car_names = load_label_mapping()
+labels = load_label_mapping()
 model = load_model()
 
 # Page content
@@ -109,9 +103,9 @@ st.title("🚗 Car Model Classifier")
 
 # Introduction paragraph
 st.write("""
-Welcome to the *Car Model Classifier*! 🚗
+Welcome to the **Car Model Classifier**! 🚗
 
-This app allows you to classify car models from images using a *pretrained ResNet50* model. The model is trained on the *Stanford Cars dataset* available on Hugging Face, which includes 196 different car models. Whether you're a car enthusiast or just curious about a specific car, this app can help you identify the car models you encounter. 
+This app allows you to classify car models from images using a **pretrained ResNet50** model. The model is trained on the **Stanford Cars dataset** available on Hugging Face, which includes 196 different car models. Whether you're a car enthusiast or just curious about a specific car, this app can help you identify the car models you encounter. 
 
 Simply upload an image of a car or provide an image URL, and let the app do the rest! 🔍
 """)
@@ -123,10 +117,7 @@ img = None
 if option == "Upload Image":
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     if uploaded_file:
-        try:
-            img = Image.open(uploaded_file).convert("RGB")
-        except Exception as e:
-            st.error(f"Failed to process uploaded image: {e}")
+        img = Image.open(uploaded_file).convert("RGB")
 
 elif option == "Image URL":
     image_url = st.text_input("Enter image URL:", key="url_input")
@@ -134,7 +125,7 @@ elif option == "Image URL":
         if image_url:
             try:
                 response = requests.get(image_url)
-                if 'image' in response.headers.get('Content-Type', ''):
+                if 'image' in response.headers['Content-Type']:
                     img = Image.open(BytesIO(response.content)).convert("RGB")
                     st.session_state['img_from_url'] = img
                 else:
@@ -157,22 +148,20 @@ if img:
         st.markdown("---")
         
         # If accuracy is below 20%, display "Not a car"
-        if acc is not None and acc < 20:
+        if acc < 20:
             st.subheader("🚘 Predicted Car: Not a car")
-        elif pred is not None:
+        else:
             try:
-                st.subheader(f"🚘 Predicted Car: {car_names[pred]}")
+                st.subheader(f"🚘 Predicted Car: {labels[pred]}") # type: ignore
             except IndexError:
                 st.subheader(f"🚘 Predicted Car: Unknown (index {pred})")
         
         # Display confidence percentage
-        if acc is not None:
-            st.write(f"🎯 Confidence: *{acc:.2f}%*")
+        st.write(f"🎯 Confidence: **{acc:.2f}%**")
         
         # Display confidence bar with green section indicating the confidence level
-        if acc is not None:
-            st.markdown(f"""
-                <div class="confidence-bar" style="width:100%; background-color: white;">
-                    <div style="height: 20px; width:{acc}%; background-color: #4CAF50; border-radius: 5px;"></div>
-                </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="confidence-bar" style="width:100%; background-color: white;">
+                <div style="height: 20px; width:{acc}%; background-color: #4CAF50; border-radius: 5px;"></div>
+            </div>
+        """, unsafe_allow_html=True)

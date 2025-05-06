@@ -86,6 +86,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Load label names and model
 
 model = load_model()
+car_names = load_label_mapping()
 
 # Page content
 st.title("🚗 Car Model Classifier")
@@ -142,7 +143,7 @@ if img:
             st.subheader("🚘 Predicted Car: Not a car")
         else:
             try:
-                st.subheader(f"🚘 Predicted Car: {car_names[pred]}")
+                st.subheader(f"🚘 Predicted Car: {car_names[pred:]}")
             except IndexError:
                 st.subheader(f"🚘 Predicted Car: Unknown (index {pred})")
         

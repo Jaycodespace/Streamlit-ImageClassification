@@ -44,7 +44,7 @@ except FileNotFoundError:
 # Load label names from dataset
 @st.cache_resource
 def load_label_mapping():
-    ds = load_dataset("naufalso/stanford_cars")
+    ds = load_dataset("naufalso/stanford_cars", cache_dir=None)
     label_to_name = {}
     max_label = 0
     for example in ds["train"]:

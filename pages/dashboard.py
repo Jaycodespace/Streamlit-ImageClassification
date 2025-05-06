@@ -34,7 +34,7 @@ def set_background(image_file):
     st.markdown(css, unsafe_allow_html=True)
 
 # Use it
-set_background("background3.jpg")
+set_background("pages/background3.jpg")
 
 
 # Load label names from dataset

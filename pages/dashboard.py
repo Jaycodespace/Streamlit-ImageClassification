@@ -84,7 +84,7 @@ def predict(image, model):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load label names and model
-car_names = load_label_mapping()
+
 model = load_model()
 
 # Page content

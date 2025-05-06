@@ -43,9 +43,8 @@ set_background("pages/background3.jpg")
 
 
 # Load label names from dataset
-@st.cache_resource
 def load_label_mapping():
-    ds = load_dataset("naufalso/stanford_cars")
+    ds = load_dataset("naufalso/stanford_cars", use_auth_token="HF_TOKEN")
     label_to_name = {}
     max_label = 0
     for example in ds["train"]:
@@ -55,6 +54,7 @@ def load_label_mapping():
         if label > max_label:
             max_label = label
     return [label_to_name.get(i, f"Unknown label {i}") for i in range(max_label + 1)]
+
 
 # Load model
 @st.cache_resource

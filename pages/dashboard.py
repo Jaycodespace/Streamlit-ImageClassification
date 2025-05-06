@@ -39,12 +39,16 @@ try:
 except FileNotFoundError:
     st.warning("⚠️ Background image not found. Skipping background setup.")
 
-
-
 # Load label names from dataset
 @st.cache_resource
 def load_label_mapping():
-    ds = load_dataset("naufalso/stanford_cars", keep_in_memory=True)
+    try:
+        # Load dataset with a custom cache directory
+        ds = load_dataset("naufalso/stanford_cars", cache_dir="/tmp/dataset_cache")  # Without keep_in_memory
+    except Exception as e:
+        st.error(f"Error loading dataset: {e}")
+        return []
+    
     label_to_name = {}
     max_label = 0
     for example in ds["train"]:
@@ -53,6 +57,7 @@ def load_label_mapping():
         label_to_name[label] = name
         if label > max_label:
             max_label = label
+    
     return [label_to_name.get(i, f"Unknown label {i}") for i in range(max_label + 1)]
 
 # Load model

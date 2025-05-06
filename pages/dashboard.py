@@ -8,17 +8,10 @@ from torchvision import transforms
 from datasets import load_dataset
 import torchvision.models as models
 import os
-from huggingface_hub import login
+
 
 # Set page config
 st.set_page_config(page_title="Car Model Classifier", layout="centered")
-
-# Hugging Face Token authentication
-hf_token = os.getenv("HF_TOKEN")
-if not hf_token:
-    raise ValueError("Hugging Face token is missing! Please set the HF_TOKEN environment variable.")
-else:
-    login(token=hf_token)
 
 # Encode image to base64
 def get_base64_bg(path):
@@ -44,9 +37,11 @@ def set_background(image_file):
 # Use it
 set_background("pages/background3.jpg")
 
+
 # Load label names from dataset
+@st.cache_resource
 def load_label_mapping():
-    ds = load_dataset("naufalso/stanford_cars", use_auth_token=hf_token)
+    ds = load_dataset("naufalso/stanford_cars")
     label_to_name = {}
     max_label = 0
     for example in ds["train"]:
@@ -62,7 +57,7 @@ def load_label_mapping():
 def load_model():
     model = models.resnet50(pretrained=False)
     num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, 196)  # Adjust for the 196 classes in Stanford Cars dataset
+    model.fc = torch.nn.Linear(num_ftrs, 196)
     model_path = os.path.join(os.path.dirname(__file__), "best_model.pth")
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at: {model_path}")
@@ -133,6 +128,7 @@ elif option == "Image URL":
             st.warning("Please enter an image URL before pressing Enter.")
     elif 'img_from_url' in st.session_state:
         img = st.session_state['img_from_url']
+
 
 # Prediction section
 if img:

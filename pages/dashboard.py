@@ -34,7 +34,11 @@ def set_background(image_file):
     st.markdown(css, unsafe_allow_html=True)
 
 # Use it
-set_background("background3.jpg")
+try:
+    set_background(os.path.join(os.path.dirname(__file__), "background3.jpg"))
+except FileNotFoundError:
+    st.warning("⚠️ Background image not found. Skipping background setup.")
+
 
 
 # Load label names from dataset

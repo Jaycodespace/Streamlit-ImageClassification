@@ -40,25 +40,16 @@ try:
 except FileNotFoundError:
     st.warning("⚠️ Background image not found. Skipping background setup.")
 
-# Load label names from Hugging Face with retries in case of rate limiting
 def load_label_mapping():
-    retries = 3
-    for _ in range(retries):
-        try:
-            # Load Stanford Cars dataset from Hugging Face
-            dataset = load_dataset("naufalso/stanford_cars")
-            # Extract car model names from the dataset
-            labels = dataset['train'].features['label'].names # type: ignore
-            return labels
-        except Exception as e:
-            if "429" in str(e):
-                st.warning("Rate limit exceeded. Retrying in 30 seconds...")
-                sleep(30)  # Wait for 30 seconds before retrying
-            else:
-                st.error(f"An error occurred: {e}")
-                break
-    st.error("Failed to load dataset after multiple attempts.")
-    return []
+    labels_path = os.path.join(os.path.dirname(__file__), "car_labels.txt")
+    if not os.path.exists(labels_path):
+        st.error(f"Label file not found: {labels_path}")
+        return []
+    with open(labels_path, "r") as file:
+        labels = [line.strip() for line in file.readlines()]
+    return labels
+
+   
 
 # Load model
 @st.cache_resource

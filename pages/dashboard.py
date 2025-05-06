@@ -49,8 +49,6 @@ def load_label_mapping():
         labels = [line.strip() for line in file.readlines()]
     return labels
 
-   
-
 # Load model
 @st.cache_resource
 def load_model():
@@ -143,7 +141,7 @@ if img:
             st.subheader("🚘 Predicted Car: Not a car")
         else:
             try:
-                st.subheader(f"🚘 Predicted Car: {labels[pred]}") # type: ignore
+                st.subheader(f"🚘 Predicted Car: {labels[pred:]}")
             except IndexError:
                 st.subheader(f"🚘 Predicted Car: Unknown (index {pred})")
         
